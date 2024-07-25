@@ -1,0 +1,41 @@
+body {
+  background-color: #0f172a;
+  width: 400px;
+  display: flex;
+  overflow-x: hidden;
+  flex-direction: column;
+  gap: 10px;
+  color: white;
+  justify-content: center;
+  align-items: center;
+  padding: 25px;
+}
+
+.btn,
+.btn-small {
+  width: 200px;
+  background-color: #4c1d95;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+
+.btn {
+  opacity: 0.9;
+}
+
+.btn-small {
+  width: 100px;
+}
+
+.btn:hover {
+  background-color: #6d28d9;
+}
+
+.btn-small:hover {
+  background-color: #6d28d9;
+}

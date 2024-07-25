@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="./styles/styles.css" />
+    <link rel="stylesheet" href="./styles/tabs.css" />
+    <link rel="stylesheet" href="./styles/switch.css" />
+    <link rel="stylesheet" href="./styles/featureFlags.css" />
+    <link rel="stylesheet" href="./styles/suggested.css" />
+  </head>
+  <body>
+    <div class="tabs">
+      <button class="tablinks" data-tab="Tab1">Autofill Booking Form</button>
+      <button class="tablinks" data-tab="Tab2">Feature flags</button>
+    </div>
+
+    <div id="Tab1" class="tabcontent">
+      <div class="switch-wrapper">
+        <h3>Show only suggested</h3>
+        <label class="switch">
+          <input type="checkbox" id="suggestedSwitch" />
+          <span class="slider round"></span>
+        </label>
+      </div>
+      <button id="pl" class="btn btn-pl">PL</button>
+      <button id="lv" class="btn btn-lv">LV</button>
+      <button id="lt" class="btn btn-lt">LT</button>
+      <button id="ee" class="btn btn-ee">EE</button>
+      <button id="hu" class="btn btn-hu">HU</button>
+      <button id="cz" class="btn btn-cz">CZ</button>
+      <button id="sk" class="btn btn-sk">SK</button>
+      <button id="en" class="btn btn-en">EN</button>
+      <div class="switch-wrapper">
+        <h3>Go to services</h3>
+        <label class="switch">
+          <input type="checkbox" id="goToServicesSwitch" />
+          <span class="slider round"></span>
+        </label>
+      </div>
+      <div class="switch-wrapper">
+        <h3>Go to payment</h3>
+        <label class="switch">
+          <input type="checkbox" id="goToPaymentSwitch" />
+          <span class="slider round"></span>
+        </label>
+      </div>
+      <div class="switch-wrapper">
+        <h3>Go to summary</h3>
+        <label class="switch">
+          <input type="checkbox" id="gotoSummarySwitch" />
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div>
+
+    <div id="Tab2" class="tabcontent">
+      <div class="input-wrapper">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Enter feature flag name"
+        />
+        <button class="btn-small" id="saveButton">Save</button>
+      </div>
+    </div>
+    <script defer type="module" src="popup.js"></script>
+    <script defer type="module" src="./js/tabs.js"></script>
+    <script defer type="module" src="./js/featureFlags.js"></script>
+    <script defer type="module" src="./js/switch.js"></script>
+    <script defer type="module" src="./js/choosePayment.js"></script>
+    <script defer type="module" src="./js/nextStep.js"></script>
+    <script defer type="module" src="./js/skipFirstStep.js"></script>
+    <script defer type="module" src="./js/suggestedLang.js"></script>
+    <!-- New JS file for Tab2 -->
+  </body>
+</html>
