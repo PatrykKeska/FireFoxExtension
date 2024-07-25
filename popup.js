@@ -24,17 +24,14 @@ const buttonFunctionMap = {
 
 function executeInCurrentTab(func, args = []) {
   return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs.length > 0) {
-        chrome.scripting.executeScript(
-          {
-            target: { tabId: tabs[0].id },
-            func: func,
-            args: args,
-          },
+        browser.tabs.executeScript(
+          tabs[0].id,
+          { code: `(${func.toString()})(${JSON.stringify(args)})` },
           (results) => {
-            if (results && results[0] && results[0].result instanceof Promise) {
-              results[0].result.then(resolve);
+            if (results && results[0] instanceof Promise) {
+              results[0].then(resolve);
             } else {
               resolve(results);
             }
@@ -49,7 +46,7 @@ function executeInCurrentTab(func, args = []) {
 
 function getCurrentTabUrl() {
   return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs.length > 0) {
         resolve(tabs[0].url);
       } else {
@@ -81,6 +78,10 @@ async function executeAndWaitForUrlChange(func, params, expectedUrl) {
   const newUrl = await waitForUrlChange(expectedUrl);
   console.log("URL changed to:", newUrl);
   return newUrl;
+}
+
+function logPageContent() {
+  console.log("Page content:", document.body.innerHTML);
 }
 
 async function handleButtonClick(buttonId, params) {
@@ -150,13 +151,32 @@ async function handleButtonClick(buttonId, params) {
   ) {
     console.log("At payment page, selecting random payment method");
     await executeInCurrentTab(selectRandomPaymentMethod);
-    console.log("Random payment method selected, moving to summary");
-    currentUrl = await executeAndWaitForUrlChange(
-      nextStep,
-      null,
-      "/booking/summary"
-    );
-    console.log("URL after going to summary:", currentUrl);
+    console.log("Random payment method selected, waiting for any changes");
+
+    // Wait for a short time to allow for any changes
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Check if URL has changed
+    let newUrl = await getCurrentTabUrl();
+    console.log("URL after selecting payment method:", newUrl);
+
+    // Log page content
+    await executeInCurrentTab(logPageContent);
+
+    // If URL hasn't changed, try to move to summary
+    if (newUrl === currentUrl) {
+      console.log(
+        "URL didn't change after selecting payment, attempting to move to summary"
+      );
+      currentUrl = await executeAndWaitForUrlChange(
+        nextStep,
+        null,
+        "/booking/summary"
+      );
+      console.log("URL after attempting to go to summary:", currentUrl);
+    } else {
+      currentUrl = newUrl;
+    }
   }
 
   console.log("Process completed. Final URL:", currentUrl);
@@ -172,3 +192,18 @@ Object.keys(buttonFunctionMap).forEach((buttonId) => {
     );
   }
 });
+
+// Update selectRandomPaymentMethod in choosePayment.js
+// export function selectRandomPaymentMethod() {
+//   console.log("Starting selectRandomPaymentMethod");
+//   const paymentMethods = document.querySelectorAll(".payment-method");
+//   console.log(`Found ${paymentMethods.length} payment methods`);
+//   if (paymentMethods.length > 0) {
+//     const randomIndex = Math.floor(Math.random() * paymentMethods.length);
+//     console.log(`Selecting payment method at index ${randomIndex}`);
+//     paymentMethods[randomIndex].click();
+//     console.log("Payment method selected");
+//   } else {
+//     console.log("No payment methods found");
+//   }
+// }

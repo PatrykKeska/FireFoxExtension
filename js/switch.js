@@ -45,14 +45,12 @@ function detectAndHighlight(retries = 3) {
 }
 
 export function detectLanguage(callback) {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId: tabs[0].id },
-        func: () => document.documentElement.lang.toLowerCase(),
-      },
+  browser.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    browser.tabs.executeScript(
+      tabs[0].id,
+      { code: "document.documentElement.lang.toLowerCase();" },
       (injectionResults) => {
-        const lang = injectionResults[0].result;
+        const lang = injectionResults[0];
         callback(lang);
       }
     );

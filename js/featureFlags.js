@@ -1,12 +1,27 @@
 function executeInCurrentTab(func, args) {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs.length > 0) {
-      chrome.scripting.executeScript({
-        target: { tabId: tabs[0].id },
-        func: func,
-        args: args,
-      });
-    }
+  return new Promise((resolve) => {
+    browser.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs.length > 0) {
+        browser.tabs.executeScript(
+          tabs[0].id,
+          { code: `(${func.toString()})(${JSON.stringify(args)})` },
+          (result) => {
+            if (browser.runtime.lastError) {
+              console.error(
+                "Error executing script:",
+                browser.runtime.lastError
+              );
+              resolve(null);
+            } else {
+              resolve(result && result[0] ? result[0] : null);
+            }
+          }
+        );
+      } else {
+        console.warn("No active tab found");
+        resolve(null);
+      }
+    });
   });
 }
 
@@ -16,45 +31,43 @@ document.addEventListener("DOMContentLoaded", () => {
   const textList = document.createElement("ul");
   document.getElementById("Tab2").appendChild(textList);
 
-  // Load saved texts from local storage
-  let savedTexts = JSON.parse(localStorage.getItem("savedTexts")) || [];
+  let savedTexts = [];
 
-  // Add default item if not added before
-  const defaultItem = { value: "useFlatServices=1", isActive: true };
-  if (!localStorage.getItem("defaultItemAdded")) {
-    savedTexts.push(defaultItem);
-    localStorage.setItem("savedTexts", JSON.stringify(savedTexts));
-    localStorage.setItem("defaultItemAdded", "true");
-  }
+  // Load saved texts from storage
+  browser.storage.local.get("savedTexts", (result) => {
+    savedTexts = result.savedTexts || [];
 
-  // Function to check URL for parameters
+    // Add default item if not added before
+    const defaultItem = { value: "useFlatServices=1", isActive: true };
+    browser.storage.local.get("defaultItemAdded", (result) => {
+      if (!result.defaultItemAdded) {
+        savedTexts.push(defaultItem);
+        browser.storage.local.set({
+          savedTexts: savedTexts,
+          defaultItemAdded: true,
+        });
+      }
+      renderTexts();
+    });
+  });
+
   const checkUrlParams = () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        chrome.scripting.executeScript(
-          {
-            target: { tabId: tabs[0].id },
-            func: () => window.location.href,
-          },
-          (results) => {
-            const currentUrl = results[0].result;
-            const url = new URL(currentUrl);
-            const params = new URLSearchParams(url.search);
+    executeInCurrentTab(() => window.location.href).then((currentUrl) => {
+      if (currentUrl) {
+        const url = new URL(currentUrl);
+        const params = new URLSearchParams(url.search);
 
-            savedTexts.forEach((textObj) => {
-              const param = textObj.value.split("=")[0];
-              textObj.isActive = params.has(param);
-            });
+        savedTexts.forEach((textObj) => {
+          const param = textObj.value.split("=")[0];
+          textObj.isActive = params.has(param);
+        });
 
-            localStorage.setItem("savedTexts", JSON.stringify(savedTexts));
-            renderTexts();
-          }
-        );
+        browser.storage.local.set({ savedTexts: savedTexts });
+        renderTexts();
       }
     });
   };
 
-  // Function to render the list of texts
   const renderTexts = () => {
     textList.innerHTML = "";
     textList.classList.add("feature-flags-list");
@@ -79,11 +92,19 @@ document.addEventListener("DOMContentLoaded", () => {
       switchInput.checked = textObj.isActive || false;
       switchInput.addEventListener("change", () => {
         textObj.isActive = switchInput.checked;
-        localStorage.setItem("savedTexts", JSON.stringify(savedTexts));
+        browser.storage.local.set({ savedTexts: savedTexts });
         if (switchInput.checked) {
-          executeInCurrentTab(executeUrlUpdate, [textObj.value]);
+          executeInCurrentTab(executeUrlUpdate, [textObj.value]).then(
+            (result) => {
+              if (result === null) {
+                console.warn("Failed to execute URL update");
+              }
+            }
+          );
         } else {
-          executeInCurrentTab(removeUrlParam, [textObj.value]);
+          executeInCurrentTab(removeParamAndReload, [
+            textObj.value.split("=")[0],
+          ]);
         }
       });
 
@@ -99,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
       deleteButton.textContent = "Delete";
       deleteButton.addEventListener("click", () => {
         savedTexts.splice(savedTexts.indexOf(textObj), 1);
-        localStorage.setItem("savedTexts", JSON.stringify(savedTexts));
+        browser.storage.local.set({ savedTexts: savedTexts });
         renderTexts();
       });
 
@@ -110,7 +131,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Function to add URL parameter
   const executeUrlUpdate = (text) => {
     let currentUrl = window.location.href;
     if (!currentUrl.includes(text)) {
@@ -118,27 +138,22 @@ document.addEventListener("DOMContentLoaded", () => {
       const newUrl = currentUrl + queryChar + text;
       window.location.href = newUrl;
     }
+    return window.location.href;
   };
 
-  // Function to remove URL parameter
-  const removeUrlParam = (text) => {
-    let currentUrl = window.location.href;
-    const url = new URL(currentUrl);
-    const params = new URLSearchParams(url.search);
-    params.delete(text.split("=")[0]);
-    url.search = params.toString();
-    window.location.href = url.toString();
+  const removeParamAndReload = (param) => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete(param);
+    window.history.replaceState({}, "", url.toString());
+    window.location.reload();
   };
 
-  // Function to show popup message
   const showPopupMessage = (message) => {
     alert(message);
   };
 
-  // Initial render
   checkUrlParams();
 
-  // Save button click handler
   saveButton.addEventListener("click", () => {
     const text = { value: userInput.value.trim(), isActive: false };
     if (text.value) {
@@ -149,14 +164,13 @@ document.addEventListener("DOMContentLoaded", () => {
         showPopupMessage("Feature flag already exists!");
       } else {
         savedTexts.push(text);
-        localStorage.setItem("savedTexts", JSON.stringify(savedTexts));
-        userInput.value = ""; // Clear the input field
+        browser.storage.local.set({ savedTexts: savedTexts });
+        userInput.value = "";
         renderTexts();
       }
     }
   });
 
-  // Check URL params on page load and history change
   window.addEventListener("load", checkUrlParams);
   window.addEventListener("popstate", checkUrlParams);
 });
